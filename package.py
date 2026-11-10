@@ -23,7 +23,28 @@ def flet_exe() -> str:
     return str(candidate) if candidate.exists() else "flet"
 
 
+def patch_flet_cli_windows() -> None:
+    """修掉 flet-cli 1.1.2 在 Windows 上必崩的一行。
+
+    win_utils.update_flet_view_version_info() 往 PE 里回写 overlay 时写的是
+    open(exe_path, "ab", encoding="utf-8")，二进制模式带 encoding 会抛 ValueError，
+    这段代码只在 Windows 且 flet.exe 带 overlay 时才走到。flet-cli 暂无修复版本。
+    """
+    if sys.platform != "win32":
+        return
+    import flet_cli
+
+    path = Path(flet_cli.__file__).parent / "__pyinstaller" / "win_utils.py"
+    source = path.read_text(encoding="utf-8")
+    broken = 'open(exe_path, "ab", encoding="utf-8")'
+    if broken not in source:
+        return
+    path.write_text(source.replace(broken, 'open(exe_path, "ab")'), encoding="utf-8")
+    print(f"已修补 flet-cli 的 Windows overlay bug：{path}")
+
+
 def main(argv: list[str]) -> None:
+    patch_flet_cli_windows()
     subprocess.run(
         [flet_exe(), "pack", "gui.py", "--onedir", "--name", NAME, "-y", *argv],
         cwd=ROOT,
