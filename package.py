@@ -34,7 +34,13 @@ def patch_flet_cli_windows() -> None:
         return
     import flet_cli
 
-    path = Path(flet_cli.__file__).parent / "__pyinstaller" / "win_utils.py"
+    # flet_cli 是命名空间包（没有 __init__.py），__file__ 为 None，只能走 __path__
+    base = next(iter(flet_cli.__path__), None)
+    if not base:
+        return
+    path = Path(base) / "__pyinstaller" / "win_utils.py"
+    if not path.exists():
+        return
     source = path.read_text(encoding="utf-8")
     broken = 'open(exe_path, "ab", encoding="utf-8")'
     if broken not in source:
